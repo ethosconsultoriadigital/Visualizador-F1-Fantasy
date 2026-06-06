@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="theme-color" content="#0B0B0F">
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar__brand">
+        <span class="topbar__flag">🏁</span>
+        <div class="topbar__titles">
+          <strong class="topbar__title">F1 FANTASY</strong>
+          <span class="topbar__sub" id="topbarSub">2026</span>
+        </div>
+      </div>
+      <button class="topbar__refresh" id="btnRefresh" title="Actualizar" aria-label="Actualizar">⟳</button>
+    </header>
+
+    <!-- Vista activa -->
+    <main class="view" id="view">
+      <div class="loader">
+        <div class="loader__spinner"></div>
+        <p>Cargando paddock…</p>
+      </div>
+    </main>
+
+    <!-- Navegación inferior -->
+    <nav class="bottomnav" id="bottomnav">
+      <button class="bottomnav__btn is-active" data-view="home">
+        <span class="bottomnav__ico">🏠</span><span class="bottomnav__lbl">Home</span>
+      </button>
+      <button class="bottomnav__btn" data-view="standings">
+        <span class="bottomnav__ico">🏆</span><span class="bottomnav__lbl">Posiciones</span>
+      </button>
+      <button class="bottomnav__btn" data-view="calendar">
+        <span class="bottomnav__ico">📅</span><span class="bottomnav__lbl">Calendario</span>
+      </button>
+      <button class="bottomnav__btn" data-view="status">
+        <span class="bottomnav__ico">📋</span><span class="bottomnav__lbl">Estado</span>
+      </button>
+      <button class="bottomnav__btn bottomnav__btn--pick" data-view="pick">
+        <span class="bottomnav__ico">🎯</span><span class="bottomnav__lbl">Pick</span>
+      </button>
+    </nav>
+  </div>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <?!= include('app'); ?>
+</body>
+</html>

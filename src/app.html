@@ -1,0 +1,442 @@
+<script>
+/* ============================================================
+   F1 FANTASY 2026 — App client (vanilla JS)
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var STATE = {
+    data: null,
+    view: 'home',
+    cdTimer: null,
+    pick: { name: '', titular: null, drivers: null, loading: false }
+  };
+
+  var TEAM_COLORS = {
+    'FERRARI':'#E8002D','MERCEDES':'#27F4D2','RED BULL':'#3671C6','MCLAREN':'#FF8000',
+    'ALPINE':'#0093CC','A. MARTIN':'#229971','ASTON MARTIN':'#229971','WILLIAMS':'#64C4FF',
+    'RACING BULLS':'#6692FF','HAAS':'#B6BABD','HASS':'#B6BABD','AUDI':'#52E252','CADILLAC':'#C8A24A'
+  };
+
+  var FLAGS = {
+    'Australia':'🇦🇺','China':'🇨🇳','Japan':'🇯🇵','Bahrain':'🇧🇭','Saudi Arabia':'🇸🇦',
+    'USA':'🇺🇸','Canada':'🇨🇦','Monaco':'🇲🇨','Spain':'🇪🇸','Austria':'🇦🇹','UK':'🇬🇧',
+    'Belgium':'🇧🇪','Hungary':'🇭🇺','Netherlands':'🇳🇱','Italy':'🇮🇹','Azerbaijan':'🇦🇿',
+    'Singapore':'🇸🇬','Brazil':'🇧🇷','Qatar':'🇶🇦','UAE':'🇦🇪','Mexico':'🇲🇽'
+  };
+
+  // ---------- utils ----------
+  var $ = function (sel, root) { return (root || document).querySelector(sel); };
+  function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+  function teamColor(t) { return TEAM_COLORS[String(t || '').toUpperCase()] || '#6B6B78'; }
+  function flag(country) { return FLAGS[country] || '🏁'; }
+  function initials(name) {
+    var p = String(name || '').trim().split(/\s+/);
+    return ((p[0] || '')[0] || '') + ((p[1] || '')[0] || '');
+  }
+  function toast(msg, kind) {
+    var t = $('#toast');
+    t.textContent = msg;
+    t.className = 'toast is-on' + (kind ? ' toast--' + kind : '');
+    clearTimeout(t._t);
+    t._t = setTimeout(function () { t.className = 'toast'; }, 2600);
+  }
+
+  // ---------- data load ----------
+  function load() {
+    setView('home'); // resalta nav
+    renderLoader();
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res || !res.ok) { renderError(res && res.error); return; }
+        STATE.data = res;
+        $('#topbarSub').textContent = 'Temporada ' + res.config.season + ' · Round ' + res.config.currentRound;
+        render();
+      })
+      .withFailureHandler(function (err) { renderError(err && err.message); })
+      .getInitialAppData();
+  }
+
+  function renderLoader() {
+    $('#view').innerHTML = '<div class="loader"><div class="loader__spinner"></div><p>Cargando paddock…</p></div>';
+  }
+  function renderError(msg) {
+    $('#view').innerHTML = '<div class="errorbox"><b>No se pudo cargar la información.</b><br>' +
+      esc(msg || 'Intenta de nuevo en unos segundos.') + '</div>' +
+      '<button class="btn btn--ghost btn--block" onclick="F1.reload()">Reintentar</button>';
+  }
+
+  // ---------- router ----------
+  function setView(v) {
+    STATE.view = v;
+    var btns = document.querySelectorAll('.bottomnav__btn');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle('is-active', btns[i].getAttribute('data-view') === v);
+    }
+  }
+  function go(v) {
+    if (STATE.cdTimer) { clearInterval(STATE.cdTimer); STATE.cdTimer = null; }
+    setView(v);
+    render();
+    window.scrollTo(0, 0);
+  }
+  function render() {
+    if (!STATE.data) return;
+    var v = STATE.view;
+    if (v === 'home') return renderHome();
+    if (v === 'standings') return renderStandings();
+    if (v === 'calendar') return renderCalendar();
+    if (v === 'status') return renderStatus();
+    if (v === 'pick') return renderPick();
+  }
+
+  // ================= HOME =================
+  function renderHome() {
+    var d = STATE.data.dashboard;
+    var race = d.nextRace || {};
+    var leader = d.leader;
+    var view = $('#view');
+    view.innerHTML = '';
+
+    // Hero próxima carrera
+    var hero = el(
+      '<div class="hero">' +
+        '<div class="hero__round">ROUND<b>' + (race.round || '–') + '</b></div>' +
+        '<div class="hero__tag">PRÓXIMA CARRERA</div>' +
+        '<div class="hero__name"><span class="hero__flag">' + flag(race.country) + '</span>' + esc(race.name || 'Por definir') + '</div>' +
+        '<div class="hero__meta">' +
+          (race.circuit ? '<span>🏎️ <b>' + esc(race.circuit) + '</b></span>' : '') +
+          (race.location ? '<span>📍 ' + esc(race.location) + (race.country ? ', ' + esc(race.country) : '') + '</span>' : '') +
+          (race.date ? '<span>🗓️ ' + esc(fmtDate(race.date)) + '</span>' : '') +
+        '</div>' +
+        '<div id="cd"></div>' +
+      '</div>'
+    );
+    view.appendChild(hero);
+    renderCountdown(d.deadlineISO);
+
+    // Stats: líder + estado picks
+    var grid = el('<div class="stat-grid"></div>');
+    grid.appendChild(el(
+      '<div class="card card--accent stat stat--leader">' +
+        '<span class="stat__label">🥇 Líder actual</span>' +
+        '<span class="stat__value">' + esc(leader ? leader.name : '—') + '</span>' +
+        '<span class="stat__sub">' + (leader ? leader.points + ' pts' : 'Sin datos') + '</span>' +
+      '</div>'
+    ));
+    grid.appendChild(el(picksRingCard(d)));
+    view.appendChild(grid);
+
+    // Podio top 3
+    if (d.standingsTop3 && d.standingsTop3.length) {
+      view.appendChild(el('<div class="section-title">Podio del fantasy</div>'));
+      var card = el('<div class="card" style="padding:16px"></div>');
+      card.appendChild(buildPodium(d.standingsTop3));
+      view.appendChild(card);
+    }
+
+    // CTAs
+    view.appendChild(el('<button class="btn btn--primary btn--block" onclick="F1.go(\'pick\')">🎯 Hacer mi pick</button>'));
+    var row = el('<div class="btn-row"></div>');
+    row.appendChild(el('<button class="btn btn--ghost" onclick="F1.go(\'standings\')">🏆 Posiciones</button>'));
+    row.appendChild(el('<button class="btn btn--ghost" onclick="F1.go(\'calendar\')">📅 Calendario</button>'));
+    view.appendChild(row);
+  }
+
+  function picksRingCard(d) {
+    var total = d.totalParticipants || 0;
+    var done = d.picksSubmitted || 0;
+    var pct = total ? done / total : 0;
+    var R = 22, C = 2 * Math.PI * R, off = C * (1 - pct);
+    return '<div class="card stat" style="justify-content:center">' +
+      '<span class="stat__label">Estado de picks</span>' +
+      '<div class="ring">' +
+        '<svg class="ring__svg" viewBox="0 0 54 54">' +
+          '<circle class="ring__track" cx="27" cy="27" r="' + R + '"></circle>' +
+          '<circle class="ring__bar" cx="27" cy="27" r="' + R + '" transform="rotate(-90 27 27)" ' +
+            'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"></circle>' +
+          '<text class="ring__txt" x="27" y="31" text-anchor="middle">' + done + '/' + total + '</text>' +
+        '</svg>' +
+        '<div><div class="stat__value" style="font-size:20px">' + done + ' listos</div>' +
+        '<div class="stat__sub">' + d.picksPending + ' pendientes</div></div>' +
+      '</div></div>';
+  }
+
+  function buildPodium(top3) {
+    var order = [top3[1], top3[0], top3[2]]; // 2 - 1 - 3
+    var cls = ['pod--2', 'pod--1', 'pod--3'];
+    var pos = [2, 1, 3];
+    var wrap = el('<div class="podium"></div>');
+    order.forEach(function (p, i) {
+      if (!p) return;
+      wrap.appendChild(el(
+        '<div class="pod ' + cls[i] + '">' +
+          '<div class="pod__ava">' + esc(initials(p.name)) + '</div>' +
+          '<div class="pod__name">' + esc(p.name) + '</div>' +
+          '<div class="pod__pts"><b>' + p.points + '</b> pts</div>' +
+          '<div class="pod__stand">' + pos[i] + '</div>' +
+        '</div>'
+      ));
+    });
+    return wrap;
+  }
+
+  // ================= COUNTDOWN =================
+  function renderCountdown(iso) {
+    var box = $('#cd');
+    if (!box) return;
+    if (!iso) { box.innerHTML = '<div class="cd-label">Deadline por definir</div>'; return; }
+    if (STATE.cdTimer) clearInterval(STATE.cdTimer);
+
+    function tick() {
+      var diff = new Date(iso).getTime() - Date.now();
+      if (diff <= 0) {
+        box.innerHTML = '<div class="cd-label cd-closed">⏱️ Picks cerrados para esta ronda</div>';
+        clearInterval(STATE.cdTimer); STATE.cdTimer = null; return;
+      }
+      var s = Math.floor(diff / 1000);
+      var dd = Math.floor(s / 86400); s -= dd * 86400;
+      var hh = Math.floor(s / 3600); s -= hh * 3600;
+      var mm = Math.floor(s / 60); var ss = s - mm * 60;
+      box.innerHTML =
+        '<div class="countdown">' +
+          cdBox(dd, 'días') + cdBox(hh, 'hrs') + cdBox(mm, 'min') + cdBox(ss, 'seg') +
+        '</div><div class="cd-label">⏱️ Cierre de picks (jue 13:00 CDMX)</div>';
+    }
+    function cdBox(n, l) { return '<div class="cd-box"><b class="tnum">' + (n < 10 ? '0' + n : n) + '</b><span>' + l + '</span></div>'; }
+    tick();
+    STATE.cdTimer = setInterval(tick, 1000);
+  }
+
+  // ================= STANDINGS =================
+  function renderStandings() {
+    var list = STATE.data.standings || [];
+    var view = $('#view'); view.innerHTML = '';
+    view.appendChild(el('<div class="section-title">Clasificación general</div>'));
+    if (!list.length) { view.appendChild(el('<div class="empty">Sin posiciones todavía.</div>')); return; }
+
+    if (list.length >= 3) {
+      var pc = el('<div class="card" style="padding:18px 16px 8px;margin-bottom:14px"></div>');
+      pc.appendChild(buildPodium(list.slice(0, 3)));
+      view.appendChild(pc);
+    }
+    var card = el('<div class="card"></div>');
+    list.forEach(function (r) {
+      var top = r.place <= 3 ? ' rank--top rank--' + r.place : '';
+      card.appendChild(el(
+        '<div class="rank' + top + '">' +
+          '<div class="rank__pos">' + r.place + '</div>' +
+          '<div class="rank__name">' + esc(r.name) + '</div>' +
+          '<div class="rank__pts tnum">' + r.points + '<span>pts</span></div>' +
+        '</div>'
+      ));
+    });
+    view.appendChild(card);
+  }
+
+  // ================= CALENDAR =================
+  function renderCalendar() {
+    var cal = STATE.data.calendar || [];
+    var view = $('#view'); view.innerHTML = '';
+    view.appendChild(el('<div class="section-title">Calendario ' + STATE.data.config.season + '</div>'));
+    if (!cal.length) { view.appendChild(el('<div class="empty">Sin calendario.</div>')); return; }
+
+    var card = el('<div class="card"></div>');
+    cal.forEach(function (r) {
+      var badge = r.state === 'current'
+        ? '<span class="badge badge--current">Actual</span>'
+        : (r.state === 'past' ? '<span class="badge badge--past">Final</span>' : '');
+      card.appendChild(el(
+        '<div class="cal-item cal-item--' + r.state + '">' +
+          '<div class="cal-item__rnd"><small>RND</small><b>' + r.round + '</b></div>' +
+          '<div class="cal-item__body">' +
+            '<div class="cal-item__name">' + flag(r.country) + ' ' + esc(r.name) + ' ' + badge + '</div>' +
+            '<div class="cal-item__meta">' + esc(r.circuit || '') + (r.location ? ' · ' + esc(r.location) : '') + '</div>' +
+          '</div>' +
+          '<div class="cal-item__date">' + esc(fmtDateShort(r.date)) + '</div>' +
+        '</div>'
+      ));
+    });
+    view.appendChild(card);
+  }
+
+  // ================= STATUS =================
+  function renderStatus() {
+    var ps = STATE.data.pickStatus || { items: [] };
+    var view = $('#view'); view.innerHTML = '';
+    view.appendChild(el('<div class="section-title">Estado de picks · Round ' + ps.round + '</div>'));
+
+    var dup = ps.items.filter(function (i) { return /duplic/i.test(i.status); }).length;
+    var auto = ps.items.filter(function (i) { return /auto/i.test(i.status); }).length;
+    view.appendChild(el(
+      '<div class="status-summary">' +
+        '<div class="chip"><b style="color:var(--ok)">' + ps.submitted + '</b><span>Con pick</span></div>' +
+        '<div class="chip"><b style="color:var(--txt-dim)">' + ps.pending + '</b><span>Pendientes</span></div>' +
+        '<div class="chip"><b style="color:#b3a3ff">' + auto + '</b><span>Autopick</span></div>' +
+      '</div>'
+    ));
+
+    if (!ps.items.length) { view.appendChild(el('<div class="empty">Aún no hay picks registrados para esta ronda.</div>')); return; }
+
+    var anyRevealed = ps.items.some(function (i) { return i.revealed; });
+    var card = el('<div class="card"></div>');
+    ps.items.forEach(function (i) { card.appendChild(el(statusRow(i))); });
+    view.appendChild(card);
+
+    view.appendChild(el('<div class="hint">' +
+      (anyRevealed
+        ? 'Los picks definitivos ya son visibles (deadline cerrado).'
+        : '🔒 Los pilotos elegidos se revelan después del cierre (jue 13:00). Por ahora solo se muestra el estado.') +
+      '</div>'));
+  }
+
+  function statusRow(i) {
+    var s = i.status.toLowerCase(), cls = 'pend', lbl = i.status;
+    if (s.indexOf('ok') !== -1) { cls = 'ok'; }
+    else if (s.indexOf('auto') !== -1) { cls = 'auto'; }
+    else if (s.indexOf('duplic') !== -1) { cls = 'dup'; }
+    var pick = (i.revealed && (i.titular || i.suplente))
+      ? '<div class="st-row__pick">🏎️ ' + esc(i.titular) + (i.suplente ? ' / ' + esc(i.suplente) : '') + '</div>' : '';
+    return '<div class="st-row"><div style="flex:1"><div class="st-row__name">' + esc(i.name) + '</div>' + pick + '</div>' +
+      '<span class="st-pill st-pill--' + cls + '">' + esc(lbl) + '</span></div>';
+  }
+
+  // ================= PICK =================
+  function renderPick() {
+    var view = $('#view'); view.innerHTML = '';
+    var names = STATE.data.participants || [];
+    var d = STATE.data.dashboard;
+    var closed = d.deadlineISO ? (new Date(d.deadlineISO).getTime() - Date.now() <= 0) : false;
+
+    view.appendChild(el('<div class="section-title">Hacer mi pick · Round ' + d.currentRound + '</div>'));
+
+    if (closed) {
+      view.appendChild(el('<div class="locked-banner">⏱️ El deadline de esta ronda ya cerró. Cuando el dueño abra la siguiente ronda en la hoja, podrás hacer tu pick aquí.</div>'));
+    }
+
+    var opts = '<option value="">— Selecciona tu nombre —</option>' +
+      names.map(function (n) { return '<option value="' + esc(n) + '"' + (n === STATE.pick.name ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+    var field = el(
+      '<div class="field">' +
+        '<label class="field__label">1 · ¿Quién eres?</label>' +
+        '<select class="select" id="selName">' + opts + '</select>' +
+      '</div>'
+    );
+    view.appendChild(field);
+    view.appendChild(el('<div id="pickBody"></div>'));
+
+    $('#selName').addEventListener('change', function () {
+      STATE.pick.name = this.value;
+      STATE.pick.titular = null;
+      STATE.pick.drivers = null;
+      if (this.value) loadDrivers(this.value); else $('#pickBody').innerHTML = '';
+    });
+
+    if (STATE.pick.name) {
+      if (STATE.pick.drivers) renderDrivers();
+      else loadDrivers(STATE.pick.name);
+    }
+  }
+
+  function loadDrivers(name) {
+    $('#pickBody').innerHTML = '<div class="loader"><div class="loader__spinner"></div><p>Cargando tus pilotos…</p></div>';
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res || !res.ok) { $('#pickBody').innerHTML = '<div class="errorbox">' + esc((res && res.error) || 'Error') + '</div>'; return; }
+        STATE.pick.drivers = res.data;
+        renderDrivers();
+      })
+      .withFailureHandler(function (err) { $('#pickBody').innerHTML = '<div class="errorbox">' + esc(err && err.message) + '</div>'; })
+      .getAvailableDrivers(name);
+  }
+
+  function renderDrivers() {
+    var data = STATE.pick.drivers;
+    var body = $('#pickBody');
+    body.innerHTML = '';
+
+    body.appendChild(el('<label class="field__label" style="margin-top:6px">2 · Elige tu piloto TITULAR</label>'));
+
+    var availWrap = el('<div class="driver-grid"></div>');
+    data.available.forEach(function (dr) { availWrap.appendChild(driverChip(dr, false)); });
+    body.appendChild(availWrap);
+
+    if (data.used && data.used.length) {
+      body.appendChild(el('<div class="divider-lbl">⚠️ Ya los usaste como titular (puedes repetir, pero te avisamos)</div>'));
+      var usedWrap = el('<div class="driver-grid"></div>');
+      data.used.forEach(function (dr) { usedWrap.appendChild(driverChip(dr, true)); });
+      body.appendChild(usedWrap);
+    }
+
+    body.appendChild(el('<div class="note" id="pickNote"></div>'));
+
+    body.appendChild(el('<div class="divider-lbl">3 · Continúa en el formulario</div>'));
+    body.appendChild(el('<div class="hint" style="text-align:left;margin:0 4px 10px">El suplente se elige en el formulario (sí se puede repetir). Tu nombre ya irá pre-llenado.</div>'));
+    var btn = el('<button class="btn btn--primary btn--block" id="btnForm">🎯 Abrir formulario de pick</button>');
+    btn.addEventListener('click', openForm);
+    body.appendChild(btn);
+  }
+
+  function driverChip(dr, used) {
+    var c = el(
+      '<button class="dchip' + (used ? ' dchip--used' : '') + '" style="--team:' + teamColor(dr.team) + '">' +
+        (used ? '<span class="dchip__warn">R' + dr.rounds.join(',R') + '</span>' : '') +
+        '<span class="dchip__code">' + esc(dr.code || dr.name) + '</span>' +
+        '<span class="dchip__team">' + esc(dr.team) + '</span>' +
+      '</button>'
+    );
+    c.addEventListener('click', function () { selectTitular(dr, used, c); });
+    return c;
+  }
+
+  function selectTitular(dr, used, node) {
+    STATE.pick.titular = dr;
+    var chips = document.querySelectorAll('.dchip');
+    for (var i = 0; i < chips.length; i++) chips[i].classList.remove('is-selected');
+    node.classList.add('is-selected');
+    var note = $('#pickNote');
+    if (used) {
+      note.className = 'note is-on';
+      note.innerHTML = '⚠️ Ya usaste a <b>' + esc(dr.code) + '</b> como titular (R' + dr.rounds.join(', R') + '). Puedes elegirlo igual; solo es un aviso.';
+    } else {
+      note.className = 'note';
+      note.innerHTML = '';
+    }
+    toast('Titular: ' + (dr.code || dr.name), 'ok');
+  }
+
+  function openForm() {
+    var name = STATE.pick.name;
+    if (!name) { toast('Primero selecciona tu nombre', 'err'); return; }
+    var f = STATE.data.form;
+    var url = f.baseUrl + '?usp=pp_url&' + f.participantEntry + '=' + encodeURIComponent(name).replace(/%20/g, '+');
+    window.open(url, '_blank');
+    var msg = STATE.pick.titular ? ('Form abierto. Elige titular ' + STATE.pick.titular.code + ' y tu suplente.') : 'Formulario abierto en una pestaña nueva';
+    toast(msg, 'ok');
+  }
+
+  // ---------- date fmt ----------
+  var MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function fmtDate(iso) {
+    var p = String(iso).slice(0, 10).split('-'); if (p.length < 3) return iso;
+    return parseInt(p[2], 10) + ' ' + MES[parseInt(p[1], 10) - 1] + ' ' + p[0];
+  }
+  function fmtDateShort(iso) {
+    var p = String(iso).slice(0, 10).split('-'); if (p.length < 3) return iso;
+    return parseInt(p[2], 10) + ' ' + MES[parseInt(p[1], 10) - 1];
+  }
+
+  // ---------- nav binding ----------
+  document.querySelectorAll('.bottomnav__btn').forEach(function (b) {
+    b.addEventListener('click', function () { go(b.getAttribute('data-view')); });
+  });
+  $('#btnRefresh').addEventListener('click', function () { load(); toast('Actualizando…'); });
+
+  // expose
+  window.F1 = { go: go, reload: load };
+
+  // boot
+  load();
+})();
+</script>
