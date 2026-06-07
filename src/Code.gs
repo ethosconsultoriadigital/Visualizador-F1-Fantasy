@@ -21,6 +21,11 @@
 // ===== CONSTANTES GLOBALES =====
 var APP = {
   TITLE: 'F1 Fantasy 2026',
+  // ID de la hoja "COMISIONADO F1 FANTASY AI 2026".
+  // Déjalo así para usar un SCRIPT INDEPENDIENTE (standalone) en la cuenta dueña,
+  // sin tocar el script de automatización existente.
+  // Si algún día usas un script VINCULADO a la hoja, ponlo en '' para usar getActiveSpreadsheet().
+  SPREADSHEET_ID: '1r_TtlZMSQ-m9dZ6aL-8VBS3y0uc9KykIigzqO8GWMvk',
   // Form de picks (proporcionado por el dueño). entry del campo "Participante".
   FORM_BASE_URL: 'https://docs.google.com/forms/d/e/1FAIpQLSceZpmVUJpVCszvmB8uPXxuQzIGUslRYYpxeFBDKkHigfr3Uw/viewform',
   FORM_PARTICIPANT_ENTRY: 'entry.1246221868',

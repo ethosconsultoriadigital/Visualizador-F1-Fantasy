@@ -3,6 +3,8 @@
  */
 var SheetUtils = (function () {
   function ss() {
+    // Script independiente: abre por ID. Script vinculado: usa la hoja activa.
+    if (APP.SPREADSHEET_ID) return SpreadsheetApp.openById(APP.SPREADSHEET_ID);
     return SpreadsheetApp.getActiveSpreadsheet();
   }
 

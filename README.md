@@ -45,30 +45,37 @@ src/
 
 ## 🚀 Despliegue
 
-### Opción A — clasp (recomendada para versionar)
+> **Recomendado:** crea un **script INDEPENDIENTE (standalone) nuevo en la cuenta dueña
+> de la hoja** (`...coppel@gmail.com`). Así no se toca ni se arriesga el script de
+> automatización existente (autopick, puntajes, Form). Como es la misma cuenta dueña,
+> tiene acceso total a la hoja **sin compartir nada**.
+>
+> El código ya viene configurado para esto: lee la hoja por ID
+> (`APP.SPREADSHEET_ID` en `Code.gs`) con `openById()`.
 
-1. Instala clasp: `npm i -g @google/clasp` y `clasp login`.
-2. Obtén el **Script ID**: abre la Sheet → *Extensiones → Apps Script → ⚙️ Configuración del proyecto → ID de secuencia de comandos*.
+### Opción A — script independiente + clasp (recomendada)
+
+1. Inicia sesión en la cuenta **dueña de la hoja**.
+2. Crea un proyecto nuevo en <https://script.google.com> (*Proyecto nuevo*) → copia su **Script ID** desde *⚙️ Configuración del proyecto → ID de secuencia de comandos*.
 3. Pega ese ID en `.clasp.json` (reemplaza `<PEGA_AQUI_TU_SCRIPT_ID>`).
-4. Sube el código:
-   ```bash
-   clasp push
-   ```
-5. Publica como Web App: editor de Apps Script → *Implementar → Nueva implementación → Aplicación web*.
-   - **Ejecutar como:** Yo (el dueño de la hoja).
-   - **Quién tiene acceso:** Cualquier usuario *(o cualquiera con la cuenta de Google, según prefieras)*.
-6. Copia la URL `/exec` y compártela. ¡Listo en celular!
+4. Sube el código: `npm i -g @google/clasp && clasp login && clasp push`.
+5. Publica como Web App: *Implementar → Nueva implementación → Aplicación web*.
+   - **Ejecutar como:** Yo (la cuenta dueña).
+   - **Quién tiene acceso:** Cualquier usuario.
+6. Autoriza los permisos la primera vez. Copia la URL `/exec` y compártela. ¡Listo en celular!
 
-> ⚠️ El script debe estar **vinculado al contenedor** (la Sheet) para que
-> `SpreadsheetApp.getActiveSpreadsheet()` apunte a la hoja correcta. Si tu proyecto
-> Apps Script es *standalone*, cambia `getActiveSpreadsheet()` por
-> `SpreadsheetApp.openById('<ID_DE_LA_HOJA>')` en `DataService.gs`.
+### Opción B — script independiente + copiar/pegar (sin clasp)
 
-### Opción B — copiar y pegar
-
-1. Abre la Sheet → *Extensiones → Apps Script*.
+1. En la cuenta dueña, ve a <https://script.google.com> → *Proyecto nuevo*.
 2. Crea los archivos `.gs` y `.html` con los mismos nombres que en `src/` y pega el contenido.
 3. Publica como Web App (pasos 5–6 de arriba).
+
+### (Alternativa) Script vinculado a la hoja
+
+Si en lugar de un script independiente prefieres uno *vinculado* (desde *Extensiones →
+Apps Script* dentro de la hoja), pon `SPREADSHEET_ID: ''` en `Code.gs` para que use
+`getActiveSpreadsheet()`. **Ojo:** comparte ese proyecto con el de automatización
+existente; cuida no duplicar funciones como `doGet`.
 
 ---
 
