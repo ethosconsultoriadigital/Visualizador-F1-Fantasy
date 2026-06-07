@@ -318,6 +318,48 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .toast--err{border-color:rgba(225,6,0,.5)}
 .toast--ok{border-color:rgba(40,199,111,.5)}
 
+/* ============================================================
+   Fase 3 — Animaciones y pulido
+   ============================================================ */
+@keyframes riseIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.list-anim>*{animation:riseIn .42s cubic-bezier(.2,.7,.2,1) backwards;animation-delay:calc(var(--i,0)*36ms)}
+
+/* Podio: las barras "crecen" */
+.pod__stand{transform-origin:bottom;animation:podRise .65s cubic-bezier(.18,.85,.25,1) backwards}
+@keyframes podRise{from{transform:scaleY(.05);opacity:.3}to{transform:scaleY(1);opacity:1}}
+.pod--2 .pod__stand{animation-delay:.05s}
+.pod--1 .pod__stand{animation-delay:.16s}
+.pod--3 .pod__stand{animation-delay:.28s}
+.pod__ava{animation:riseIn .5s ease backwards;animation-delay:.12s}
+
+/* Countdown: punto "live" + entrada de cajas */
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);
+  margin-right:7px;vertical-align:middle;animation:pulseDot 1.3s ease-in-out infinite;
+  box-shadow:0 0 0 0 rgba(225,6,0,.6)}
+@keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(225,6,0,.5)}70%{box-shadow:0 0 0 6px rgba(225,6,0,0)}100%{box-shadow:0 0 0 0 rgba(225,6,0,0)}}
+.countdown .cd-box{animation:riseIn .4s ease backwards}
+.countdown .cd-box:nth-child(2){animation-delay:.05s}
+.countdown .cd-box:nth-child(3){animation-delay:.1s}
+.countdown .cd-box:nth-child(4){animation-delay:.15s}
+.cd-box b.flip{animation:flip .35s ease}
+@keyframes flip{0%{transform:translateY(-5px);opacity:.3}100%{transform:none;opacity:1}}
+
+/* Hero entrada */
+.hero{animation:riseIn .45s ease backwards}
+
+/* Skeleton shimmer */
+.sk{background:linear-gradient(100deg,#16161d 25%,#23232e 50%,#16161d 75%);
+  background-size:220% 100%;animation:shimmer 1.25s linear infinite;border-radius:10px}
+@keyframes shimmer{to{background-position:-220% 0}}
+.sk-line{height:13px;margin:9px 0;border-radius:6px}
+.sk-card{height:104px;border-radius:var(--radius);margin-bottom:13px}
+.sk-row{height:46px;border-radius:12px;margin-bottom:10px}
+
+/* Reduce motion */
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+
 /* ---------- Desktop ---------- */
 @media(min-width:600px){
   body{padding:0}

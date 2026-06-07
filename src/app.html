@@ -59,7 +59,19 @@
   }
 
   function renderLoader() {
-    $('#view').innerHTML = '<div class="loader"><div class="loader__spinner"></div><p>Cargando paddock…</p></div>';
+    $('#view').innerHTML =
+      '<div class="sk sk-card"></div>' +
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px">' +
+        '<div class="sk sk-card" style="height:96px"></div><div class="sk sk-card" style="height:96px"></div>' +
+      '</div>' +
+      '<div class="sk sk-line" style="width:40%"></div>' +
+      '<div class="sk sk-card" style="height:140px"></div>' +
+      '<div class="sk sk-row"></div><div class="sk sk-row"></div>';
+  }
+  function skeletonRows(n) {
+    var h = '';
+    for (var i = 0; i < (n || 5); i++) h += '<div class="sk sk-row"></div>';
+    return h;
   }
   function renderError(msg) {
     $('#view').innerHTML = '<div class="errorbox"><b>No se pudo cargar la información.</b><br>' +
@@ -84,11 +96,36 @@
   function render() {
     if (!STATE.data) return;
     var v = STATE.view;
-    if (v === 'home') return renderHome();
-    if (v === 'standings') return renderStandings();
-    if (v === 'calendar') return renderCalendar();
-    if (v === 'status') return renderStatus();
-    if (v === 'pick') return renderPick();
+    if (v === 'home') renderHome();
+    else if (v === 'standings') renderStandings();
+    else if (v === 'calendar') renderCalendar();
+    else if (v === 'status') renderStatus();
+    else if (v === 'pick') renderPick();
+    enhance();
+  }
+
+  // Animaciones post-render (anillos + conteo de números). Idempotente.
+  function enhance() {
+    document.querySelectorAll('.ring__bar[data-off]').forEach(function (b) {
+      if (b._done) return; b._done = true;
+      var off = b.getAttribute('data-off');
+      requestAnimationFrame(function () { b.style.strokeDashoffset = off; });
+    });
+    document.querySelectorAll('[data-count]').forEach(function (n) {
+      if (n._done) return; n._done = true;
+      countUp(n, parseFloat(n.getAttribute('data-count')) || 0);
+    });
+  }
+  function countUp(node, to) {
+    var dur = 700, start = null;
+    function step(ts) {
+      if (start === null) start = ts;
+      var p = Math.min(1, (ts - start) / dur);
+      var eased = 0.5 - Math.cos(Math.PI * p) / 2;
+      node.textContent = Math.round(to * eased);
+      if (p < 1) requestAnimationFrame(step); else node.textContent = to;
+    }
+    requestAnimationFrame(step);
   }
 
   // ================= HOME =================
@@ -155,10 +192,11 @@
         '<svg class="ring__svg" viewBox="0 0 54 54">' +
           '<circle class="ring__track" cx="27" cy="27" r="' + R + '"></circle>' +
           '<circle class="ring__bar" cx="27" cy="27" r="' + R + '" transform="rotate(-90 27 27)" ' +
-            'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + off.toFixed(1) + '"></circle>' +
+            'stroke-dasharray="' + C.toFixed(1) + '" stroke-dashoffset="' + C.toFixed(1) + '" ' +
+            'data-off="' + off.toFixed(1) + '"></circle>' +
           '<text class="ring__txt" x="27" y="31" text-anchor="middle">' + done + '/' + total + '</text>' +
         '</svg>' +
-        '<div><div class="stat__value" style="font-size:20px">' + done + ' listos</div>' +
+        '<div><div class="stat__value" style="font-size:20px"><span data-count="' + done + '">0</span> listos</div>' +
         '<div class="stat__sub">' + d.picksPending + ' pendientes</div></div>' +
       '</div></div>';
   }
@@ -174,7 +212,7 @@
         '<div class="pod ' + cls[i] + '">' +
           '<div class="pod__ava">' + esc(initials(p.name)) + '</div>' +
           '<div class="pod__name">' + esc(p.name) + '</div>' +
-          '<div class="pod__pts"><b>' + p.points + '</b> pts</div>' +
+          '<div class="pod__pts"><b data-count="' + p.points + '">0</b> pts</div>' +
           '<div class="pod__stand">' + pos[i] + '</div>' +
         '</div>'
       ));
@@ -189,6 +227,23 @@
     if (!iso) { box.innerHTML = '<div class="cd-label">Deadline por definir</div>'; return; }
     if (STATE.cdTimer) clearInterval(STATE.cdTimer);
 
+    // Estructura una sola vez; luego solo actualizamos dígitos (sin flicker).
+    box.innerHTML =
+      '<div class="countdown">' +
+        cdBox('días') + cdBox('hrs') + cdBox('min') + cdBox('seg') +
+      '</div>' +
+      '<div class="cd-label"><span class="live-dot"></span>Cierre de picks · jue 13:00 CDMX</div>';
+    var bs = box.querySelectorAll('.cd-box b');
+
+    function cdBox(l) { return '<div class="cd-box"><b class="tnum">00</b><span>' + l + '</span></div>'; }
+    function set(node, n) {
+      var v = (n < 10 ? '0' + n : '' + n);
+      if (node.textContent !== v) {
+        node.textContent = v;
+        node.classList.remove('flip'); void node.offsetWidth; node.classList.add('flip');
+      }
+    }
+
     function tick() {
       var diff = new Date(iso).getTime() - Date.now();
       if (diff <= 0) {
@@ -199,12 +254,8 @@
       var dd = Math.floor(s / 86400); s -= dd * 86400;
       var hh = Math.floor(s / 3600); s -= hh * 3600;
       var mm = Math.floor(s / 60); var ss = s - mm * 60;
-      box.innerHTML =
-        '<div class="countdown">' +
-          cdBox(dd, 'días') + cdBox(hh, 'hrs') + cdBox(mm, 'min') + cdBox(ss, 'seg') +
-        '</div><div class="cd-label">⏱️ Cierre de picks (jue 13:00 CDMX)</div>';
+      set(bs[0], dd); set(bs[1], hh); set(bs[2], mm); set(bs[3], ss);
     }
-    function cdBox(n, l) { return '<div class="cd-box"><b class="tnum">' + (n < 10 ? '0' + n : n) + '</b><span>' + l + '</span></div>'; }
     tick();
     STATE.cdTimer = setInterval(tick, 1000);
   }
@@ -221,11 +272,11 @@
       pc.appendChild(buildPodium(list.slice(0, 3)));
       view.appendChild(pc);
     }
-    var card = el('<div class="card"></div>');
-    list.forEach(function (r) {
+    var card = el('<div class="card list-anim"></div>');
+    list.forEach(function (r, idx) {
       var top = r.place <= 3 ? ' rank--top rank--' + r.place : '';
       card.appendChild(el(
-        '<div class="rank' + top + '">' +
+        '<div class="rank' + top + '" style="--i:' + idx + '">' +
           '<div class="rank__pos">' + r.place + '</div>' +
           '<div class="rank__name">' + esc(r.name) + '</div>' +
           '<div class="rank__pts tnum">' + r.points + '<span>pts</span></div>' +
@@ -242,13 +293,13 @@
     view.appendChild(el('<div class="section-title">Calendario ' + STATE.data.config.season + '</div>'));
     if (!cal.length) { view.appendChild(el('<div class="empty">Sin calendario.</div>')); return; }
 
-    var card = el('<div class="card"></div>');
-    cal.forEach(function (r) {
+    var card = el('<div class="card list-anim"></div>');
+    cal.forEach(function (r, idx) {
       var badge = r.state === 'current'
         ? '<span class="badge badge--current">Actual</span>'
         : (r.state === 'past' ? '<span class="badge badge--past">Final</span>' : '');
       card.appendChild(el(
-        '<div class="cal-item cal-item--' + r.state + '">' +
+        '<div class="cal-item cal-item--' + r.state + '" style="--i:' + idx + '">' +
           '<div class="cal-item__rnd"><small>RND</small><b>' + r.round + '</b></div>' +
           '<div class="cal-item__body">' +
             '<div class="cal-item__name">' + flag(r.country) + ' ' + esc(r.name) + ' ' + badge + '</div>' +
@@ -271,17 +322,17 @@
     var auto = ps.items.filter(function (i) { return /auto/i.test(i.status); }).length;
     view.appendChild(el(
       '<div class="status-summary">' +
-        '<div class="chip"><b style="color:var(--ok)">' + ps.submitted + '</b><span>Con pick</span></div>' +
-        '<div class="chip"><b style="color:var(--txt-dim)">' + ps.pending + '</b><span>Pendientes</span></div>' +
-        '<div class="chip"><b style="color:#b3a3ff">' + auto + '</b><span>Autopick</span></div>' +
+        '<div class="chip"><b data-count="' + ps.submitted + '" style="color:var(--ok)">0</b><span>Con pick</span></div>' +
+        '<div class="chip"><b data-count="' + ps.pending + '" style="color:var(--txt-dim)">0</b><span>Pendientes</span></div>' +
+        '<div class="chip"><b data-count="' + auto + '" style="color:#b3a3ff">0</b><span>Autopick</span></div>' +
       '</div>'
     ));
 
     if (!ps.items.length) { view.appendChild(el('<div class="empty">Aún no hay picks registrados para esta ronda.</div>')); return; }
 
     var anyRevealed = ps.items.some(function (i) { return i.revealed; });
-    var card = el('<div class="card"></div>');
-    ps.items.forEach(function (i) { card.appendChild(el(statusRow(i))); });
+    var card = el('<div class="card list-anim"></div>');
+    ps.items.forEach(function (i, idx) { card.appendChild(el(statusRow(i, idx))); });
     view.appendChild(card);
 
     view.appendChild(el('<div class="hint">' +
@@ -291,14 +342,14 @@
       '</div>'));
   }
 
-  function statusRow(i) {
+  function statusRow(i, idx) {
     var s = i.status.toLowerCase(), cls = 'pend', lbl = i.status;
     if (s.indexOf('ok') !== -1) { cls = 'ok'; }
     else if (s.indexOf('auto') !== -1) { cls = 'auto'; }
     else if (s.indexOf('duplic') !== -1) { cls = 'dup'; }
     var pick = (i.revealed && (i.titular || i.suplente))
       ? '<div class="st-row__pick">🏎️ ' + esc(i.titular) + (i.suplente ? ' / ' + esc(i.suplente) : '') + '</div>' : '';
-    return '<div class="st-row"><div style="flex:1"><div class="st-row__name">' + esc(i.name) + '</div>' + pick + '</div>' +
+    return '<div class="st-row" style="--i:' + (idx || 0) + '"><div style="flex:1"><div class="st-row__name">' + esc(i.name) + '</div>' + pick + '</div>' +
       '<span class="st-pill st-pill--' + cls + '">' + esc(lbl) + '</span></div>';
   }
 
@@ -340,7 +391,13 @@
   }
 
   function loadDrivers(name) {
-    $('#pickBody').innerHTML = '<div class="loader"><div class="loader__spinner"></div><p>Cargando tus pilotos…</p></div>';
+    $('#pickBody').innerHTML =
+      '<div class="sk sk-line" style="width:55%;margin-top:8px"></div>' +
+      '<div class="driver-grid">' +
+        '<div class="sk" style="height:62px"></div><div class="sk" style="height:62px"></div>' +
+        '<div class="sk" style="height:62px"></div><div class="sk" style="height:62px"></div>' +
+        '<div class="sk" style="height:62px"></div><div class="sk" style="height:62px"></div>' +
+      '</div>';
     google.script.run
       .withSuccessHandler(function (res) {
         if (!res || !res.ok) { $('#pickBody').innerHTML = '<div class="errorbox">' + esc((res && res.error) || 'Error') + '</div>'; return; }
@@ -358,14 +415,14 @@
 
     body.appendChild(el('<label class="field__label" style="margin-top:6px">2 · Elige tu piloto TITULAR</label>'));
 
-    var availWrap = el('<div class="driver-grid"></div>');
-    data.available.forEach(function (dr) { availWrap.appendChild(driverChip(dr, false)); });
+    var availWrap = el('<div class="driver-grid list-anim"></div>');
+    data.available.forEach(function (dr, idx) { availWrap.appendChild(driverChip(dr, false, idx)); });
     body.appendChild(availWrap);
 
     if (data.used && data.used.length) {
       body.appendChild(el('<div class="divider-lbl">⚠️ Ya los usaste como titular (puedes repetir, pero te avisamos)</div>'));
-      var usedWrap = el('<div class="driver-grid"></div>');
-      data.used.forEach(function (dr) { usedWrap.appendChild(driverChip(dr, true)); });
+      var usedWrap = el('<div class="driver-grid list-anim"></div>');
+      data.used.forEach(function (dr, idx) { usedWrap.appendChild(driverChip(dr, true, idx)); });
       body.appendChild(usedWrap);
     }
 
@@ -378,9 +435,9 @@
     body.appendChild(btn);
   }
 
-  function driverChip(dr, used) {
+  function driverChip(dr, used, idx) {
     var c = el(
-      '<button class="dchip' + (used ? ' dchip--used' : '') + '" style="--team:' + teamColor(dr.team) + '">' +
+      '<button class="dchip' + (used ? ' dchip--used' : '') + '" style="--team:' + teamColor(dr.team) + ';--i:' + (idx || 0) + '">' +
         (used ? '<span class="dchip__warn">R' + dr.rounds.join(',R') + '</span>' : '') +
         '<span class="dchip__code">' + esc(dr.code || dr.name) + '</span>' +
         '<span class="dchip__team">' + esc(dr.team) + '</span>' +

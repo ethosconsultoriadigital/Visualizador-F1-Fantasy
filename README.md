@@ -10,7 +10,12 @@ participante), y el round actual lo controla el dueño en la pestaña `Config`.
 
 ---
 
-## ✨ Funcionalidades (Fases 1 y 2)
+## ✨ Funcionalidades (Fases 1–3)
+
+> **Fase 3 (pulido visual):** skeletons de carga, entrada escalonada de listas,
+> podio que "crece", anillo de picks animado, countdown con dígitos suaves + punto
+> *live*, y conteo animado de números. Respeta `prefers-reduced-motion`.
+
 
 | Pantalla | Qué muestra | Pestaña origen |
 |---|---|---|
