@@ -1,0 +1,13 @@
+{
+  "name": "f1-fantasy-preview",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Preview visual local de la Web App F1 Fantasy (datos mock).",
+  "scripts": {
+    "build": "node build.js",
+    "shots": "node build.js && node shoot.js"
+  },
+  "dependencies": {
+    "puppeteer": "^23.0.0"
+  }
+}

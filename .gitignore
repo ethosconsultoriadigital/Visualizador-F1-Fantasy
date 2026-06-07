@@ -2,6 +2,11 @@
 .clasprc.json
 .clasp.local.json
 
+# Preview tooling (generados)
+tools/preview/preview.html
+tools/preview/*.png
+tools/preview/package-lock.json
+
 # OS / editor
 .DS_Store
 Thumbs.db

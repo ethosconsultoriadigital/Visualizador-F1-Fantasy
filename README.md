@@ -99,6 +99,29 @@ suplente, agrega sus `entry IDs` y amplía `FormService` / `openForm`.
 
 ---
 
+## 👀 Ver el diseño sin desplegar
+
+Puedes previsualizar todas las pantallas con datos de ejemplo (sin tocar la hoja):
+
+```bash
+cd tools/preview && npm i && npm run shots   # genera capturas 01..05 .png
+# o: node build.js && abre preview.html en tu navegador
+```
+
+Más detalle en [`tools/preview/README.md`](tools/preview/README.md).
+
+## ✅ Checklist de producción (Fase 5)
+
+- [ ] `clasp push` al proyecto independiente (Script ID ya en `.clasp.json`).
+- [ ] Implementar como **Aplicación web**: *Ejecutar como: yo · Acceso: cualquiera*.
+- [ ] Autorizar permisos la primera vez (la app pedirá acceso a Sheets).
+- [ ] Verificar `LOCK_ROUND` en `Config` = round que quieres mostrar.
+- [ ] Probar en celular: Home, Posiciones, Calendario, Estado, Pick.
+- [ ] Confirmar que el botón "Hacer mi pick" abre el Form con el nombre pre-llenado.
+- [ ] (Cada semana) cambiar `LOCK_ROUND` en `Config` al abrir nueva ronda.
+- [ ] (Opcional) Reemplazar el deploy con *Gestionar implementaciones → editar* para
+      conservar la **misma URL** al subir cambios.
+
 ## 🔒 Seguridad
 
 - Los **códigos** de participante **nunca** salen al frontend (la validación del código
