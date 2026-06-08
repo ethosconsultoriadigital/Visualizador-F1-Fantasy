@@ -122,6 +122,55 @@ Más detalle en [`tools/preview/README.md`](tools/preview/README.md).
 - [ ] (Opcional) Reemplazar el deploy con *Gestionar implementaciones → editar* para
       conservar la **misma URL** al subir cambios.
 
+## 📱 PWA — instalar como app (ícono + pantalla completa)
+
+En `docs/` hay una **PWA "envoltura"** lista para **GitHub Pages**: muestra la Web App
+de Apps Script a pantalla completa, con **ícono F1 (MZT 2026)** y arranque tipo app.
+
+**Activar GitHub Pages:**
+1. Repo en GitHub → **Settings → Pages**.
+2. *Source:* **Deploy from a branch** → elige la rama (p. ej. `main`) y carpeta **`/docs`**.
+3. Guarda. En ~1 min tendrás la URL corta:
+   `https://ethosconsultoriadigital.github.io/Visualizador-F1-Fantasy/`
+4. (Si el código está en una rama de trabajo, mézclalo a `main` o apunta Pages a esa rama.)
+
+**Instalar en el celular:**
+- **iPhone/iPad (Safari):** Compartir ⬆️ → *Agregar a inicio*.
+- **Android (Chrome):** menú ⋮ → *Instalar app / Agregar a pantalla principal*.
+
+> Si cambias la URL de la Web App (`/exec`), actualiza el `src` del iframe en
+> `docs/index.html`.
+
+## 🔔 Recordatorios por WhatsApp (vía Make)
+
+La app expone un **endpoint JSON de solo lectura** para que Make consulte quién falta:
+
+```
+GET https://script.google.com/macros/s/<DEPLOY_ID>/exec?api=reminders&key=<API_KEY>
+```
+Respuesta:
+```json
+{ "ok": true, "round": 9, "race": "Barcelona Grand Prix",
+  "deadlineISO": "2026-06-11T13:00:00-06:00",
+  "total": 15, "submitted": 9, "pendingCount": 6,
+  "pending": ["JAVIER NARES", "FER CARRILLO", "..."] }
+```
+- `API_KEY` se configura en `Code.gs` (`APP.API_KEY`, por defecto `mzt2026` — cámbialo).
+
+**Escenario sugerido en Make:**
+1. **Schedule** (p. ej. jueves 09:00 CDMX, antes del cierre 13:00).
+2. **HTTP → Make a request** (GET) al endpoint de arriba → *Parse JSON*.
+3. (Opcional) **Router/Filter**: continuar solo si `pendingCount > 0`.
+4. **WhatsApp** (tu conexión actual): enviar al grupo un mensaje tipo:
+   *"🏁 Faltan {{pendingCount}} picks para {{race}} (cierra hoy 13:00): {{join(pending; \", \")}}"*.
+
+## ✅ Estado de despliegue (esta sesión)
+
+- `clasp push` ✅ · Deployment Web App ✅ (`/exec`) · API `?api=reminders` ✅
+- PWA en `docs/` ✅ (falta que actives GitHub Pages)
+- Push al ícono (Web Push/VAPID): **service worker preparado** en `docs/sw.js`,
+  pendiente de configurar (opcional).
+
 ## 🔒 Seguridad
 
 - Los **códigos** de participante **nunca** salen al frontend (la validación del código

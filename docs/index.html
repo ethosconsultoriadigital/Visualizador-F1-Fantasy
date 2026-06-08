@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>F1 Fantasy 2026</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0B0B0F">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="favicon-32.png" sizes="32x32">
+  <!-- iOS: instalar como app a pantalla completa -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="F1 Fantasy">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root{ --bg:#0B0B0F; --red:#E10600; }
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;background:var(--bg);overflow:hidden}
+    /* iframe a pantalla completa */
+    #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:var(--bg)}
+    /* splash mientras carga */
+    #splash{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:18px;background:radial-gradient(900px 500px at 50% 30%,#1a1a24,#0B0B0F 70%);
+      color:#fff;font-family:-apple-system,Segoe UI,Roboto,sans-serif;z-index:2;transition:opacity .4s ease}
+    #splash.hide{opacity:0;pointer-events:none}
+    #splash .logo{font-size:46px;font-weight:900;letter-spacing:3px}
+    #splash .logo b{color:var(--red)}
+    #splash .sub{font-size:12px;letter-spacing:3px;color:#9A9AA5;text-transform:uppercase}
+    #splash .sp{width:34px;height:34px;border-radius:50%;border:3px solid #2A2A36;border-top-color:var(--red);
+      animation:spin 1s linear infinite;margin-top:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div id="splash">
+    <div class="logo">F<b>1</b> FANTASY</div>
+    <div class="sub">MZT · 2026</div>
+    <div class="sp"></div>
+  </div>
+
+  <iframe id="app"
+    src="https://script.google.com/macros/s/AKfycbxQzbwHUMU6xq2y2L-LeK4rNFHqJKH33G-B3e9hksEPgJHQh4dsGPmyBRLs-4Qfqw6Lww/exec"
+    allow="clipboard-write"
+    referrerpolicy="no-referrer-when-downgrade"></iframe>
+
+  <script>
+    // Oculta el splash cuando el iframe termina de cargar (o tras un máximo).
+    var splash = document.getElementById('splash');
+    var app = document.getElementById('app');
+    function hideSplash(){ splash.classList.add('hide'); }
+    app.addEventListener('load', function(){ setTimeout(hideSplash, 400); });
+    setTimeout(hideSplash, 6000); // failsafe
+
+    // Registrar service worker (habilita "instalar" y prepara push).
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function(){
+        navigator.serviceWorker.register('sw.js').catch(function(e){ console.warn('SW', e); });
+      });
+    }
+  </script>
+</body>
+</html>

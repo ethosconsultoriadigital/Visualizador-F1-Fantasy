@@ -31,7 +31,10 @@ var APP = {
   FORM_PARTICIPANT_ENTRY: 'entry.1246221868',
   // Offset fijo de zona horaria (CDMX no usa horario de verano desde 2022).
   TZ_OFFSET: '-06:00',
-  CACHE_TTL_SECONDS: 90
+  CACHE_TTL_SECONDS: 90,
+  // Clave simple para proteger el endpoint JSON (úsala en Make: &key=...).
+  // Cámbiala por la que quieras.
+  API_KEY: 'mzt2026'
 };
 
 // Nombres de pestañas tal como existen en la hoja.
@@ -48,12 +51,64 @@ var TABS = {
 /**
  * Punto de entrada de la Web App.
  */
-function doGet() {
+function doGet(e) {
+  e = e || {};
+  var params = e.parameter || {};
+  // Endpoint JSON para integraciones (Make/WhatsApp): /exec?api=reminders&key=...
+  if (params.api) return handleApi_(params);
+
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle(APP.TITLE)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * API JSON de solo lectura para Make (recordatorios por WhatsApp).
+ *   /exec?api=reminders&key=<API_KEY>
+ * Devuelve la ronda actual, deadline y la lista de participantes que faltan.
+ */
+function handleApi_(params) {
+  if (APP.API_KEY && params.key !== APP.API_KEY) {
+    return jsonOut_({ ok: false, error: 'unauthorized' });
+  }
+  try {
+    if (params.api === 'reminders' || params.api === 'pendientes') {
+      var config = ConfigService.get();
+      var round = config.currentRound;
+      var calendar = DataService.getCalendar(round, config.tzName);
+      var nextRace = ConfigService.resolveNextRace(calendar, round, config.tzName);
+      var deadlineISO = nextRace
+        ? ConfigService.computeDeadlineISO(nextRace.date, config.deadlineDay, config.deadlineHour) : null;
+
+      var status = DataService.getPickStatus(round);
+      var submitted = {};
+      status.items.forEach(function (i) {
+        if (/ok|auto|duplic/i.test(i.status)) submitted[i.name] = true;
+      });
+      var pending = DataService.getParticipantsNames().filter(function (n) { return !submitted[n]; });
+
+      return jsonOut_({
+        ok: true,
+        round: round,
+        race: nextRace ? nextRace.name : '',
+        deadlineISO: deadlineISO,
+        total: status.total,
+        submitted: status.submitted,
+        pendingCount: pending.length,
+        pending: pending
+      });
+    }
+    return jsonOut_({ ok: false, error: 'unknown api' });
+  } catch (err) {
+    return jsonOut_({ ok: false, error: String(err && err.message ? err.message : err) });
+  }
+}
+
+function jsonOut_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
