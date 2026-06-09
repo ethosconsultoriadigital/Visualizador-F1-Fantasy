@@ -58,6 +58,16 @@ var SheetUtils = (function () {
 
 
 /**
+ * ¿El estado de la hoja indica que el participante YA hizo su pick?
+ * La hoja usa "Aceptado" / "Pendiente". Tratamos como "hecho" todo lo que
+ * no sea Pendiente ni vacío (también cubre OK / Autopick / Duplicado).
+ */
+function isSubmittedStatus_(status) {
+  var s = String(status || '').toLowerCase().trim();
+  return !!s && s.indexOf('pend') === -1;
+}
+
+/**
  * DataService — lecturas de dominio (Standings, Calendar, Drivers,
  * STATUS_PICKS, Picks, Participants) + cálculo de pilotos disponibles.
  * Usa CacheService para evitar lecturas repetitivas.
@@ -182,9 +192,10 @@ var DataService = (function () {
         };
       }).filter(function (r) { return r.name; });
 
+      // Cuenta como "pick hecho" cualquier estado que NO sea Pendiente (ni vacío).
+      // La automatización de la hoja usa "Aceptado"; también soporta OK/Autopick/Duplicado.
       var submitted = items.filter(function (i) {
-        var s = i.status.toLowerCase();
-        return s.indexOf('ok') !== -1 || s.indexOf('auto') !== -1 || s.indexOf('duplic') !== -1;
+        return isSubmittedStatus_(i.status);
       }).length;
 
       return {

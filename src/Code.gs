@@ -85,7 +85,7 @@ function handleApi_(params) {
       var status = DataService.getPickStatus(round);
       var submitted = {};
       status.items.forEach(function (i) {
-        if (/ok|auto|duplic/i.test(i.status)) submitted[i.name] = true;
+        if (isSubmittedStatus_(i.status)) submitted[i.name] = true;
       });
       var pending = DataService.getParticipantsNames().filter(function (n) { return !submitted[n]; });
 

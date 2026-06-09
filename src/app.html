@@ -344,9 +344,10 @@
 
   function statusRow(i, idx) {
     var s = i.status.toLowerCase(), cls = 'pend', lbl = i.status;
-    if (s.indexOf('ok') !== -1) { cls = 'ok'; }
-    else if (s.indexOf('auto') !== -1) { cls = 'auto'; }
+    if (s.indexOf('auto') !== -1) { cls = 'auto'; }
     else if (s.indexOf('duplic') !== -1) { cls = 'dup'; }
+    // "Aceptado", "OK" y cualquier estado que no sea Pendiente → pick hecho (verde).
+    else if (s && s.indexOf('pend') === -1) { cls = 'ok'; }
     var pick = (i.revealed && (i.titular || i.suplente))
       ? '<div class="st-row__pick">🏎️ ' + esc(i.titular) + (i.suplente ? ' / ' + esc(i.suplente) : '') + '</div>' : '';
     return '<div class="st-row" style="--i:' + (idx || 0) + '"><div style="flex:1"><div class="st-row__name">' + esc(i.name) + '</div>' + pick + '</div>' +
