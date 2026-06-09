@@ -68,6 +68,16 @@ function isSubmittedStatus_(status) {
 }
 
 /**
+ * ¿La fila de Picks ya está bloqueada (cerró su ronda)?
+ * La automatización pone Locked=TRUE en el corte (1pm). Antes de eso, el
+ * pick de la ronda en curso NO debe revelarse como "usado".
+ */
+function isLocked_(v) {
+  if (v === true) return true;
+  return String(v || '').trim().toUpperCase() === 'TRUE';
+}
+
+/**
  * DataService — lecturas de dominio (Standings, Calendar, Drivers,
  * STATUS_PICKS, Picks, Participants) + cálculo de pilotos disponibles.
  * Usa CacheService para evitar lecturas repetitivas.
@@ -222,6 +232,10 @@ var DataService = (function () {
     t.rows.forEach(function (r) {
       var p = String(SheetUtils.pick(r, ['Participante', 'Nombre']) || '').trim();
       if (p !== name) return;
+      // Solo cuenta como "usado" si la ronda ya cerró (Locked=TRUE). Así el pick
+      // de la ronda en curso no se revela hasta el corte de la 1pm; antes de eso
+      // ese piloto sigue apareciendo disponible.
+      if (!isLocked_(SheetUtils.pick(r, ['Locked']))) return;
       var did = String(SheetUtils.pick(r, ['TitularDriverId']) || '').trim();
       var rnd = num(SheetUtils.pick(r, ['Round', 'Ronda']));
       if (!did) return;
