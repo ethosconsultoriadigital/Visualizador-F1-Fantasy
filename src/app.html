@@ -30,6 +30,19 @@
   function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
   function teamColor(t) { return TEAM_COLORS[String(t || '').toUpperCase()] || '#6B6B78'; }
+  // Resuelve un piloto a partir de su código (PIAS) o nombre, usando el catálogo cargado.
+  function driverByKey(key) {
+    var k = String(key || '').trim().toUpperCase();
+    if (!k) return null;
+    var ds = (STATE.data && STATE.data.drivers) || [];
+    for (var i = 0; i < ds.length; i++) {
+      if (String(ds[i].code || '').toUpperCase() === k || String(ds[i].name || '').toUpperCase() === k) return ds[i];
+    }
+    for (var j = 0; j < ds.length; j++) {
+      if (String(ds[j].name || '').toUpperCase().indexOf(k) !== -1) return ds[j];
+    }
+    return null;
+  }
   function flag(country) { return FLAGS[country] || '🏁'; }
   function initials(name) {
     var p = String(name || '').trim().split(/\s+/);
@@ -330,16 +343,46 @@
 
     if (!ps.items.length) { view.appendChild(el('<div class="empty">Aún no hay picks registrados para esta ronda.</div>')); return; }
 
-    var anyRevealed = ps.items.some(function (i) { return i.revealed; });
-    var card = el('<div class="card list-anim"></div>');
-    ps.items.forEach(function (i, idx) { card.appendChild(el(statusRow(i, idx))); });
-    view.appendChild(card);
+    var anyRevealed = ps.items.some(function (i) { return i.revealed && i.titular; });
 
-    view.appendChild(el('<div class="hint">' +
-      (anyRevealed
-        ? 'Los picks definitivos ya son visibles (deadline cerrado).'
-        : '🔒 Los pilotos elegidos se revelan después del cierre (jue 13:00). Por ahora solo se muestra el estado.') +
-      '</div>'));
+    if (anyRevealed) {
+      // Deadline cerrado: parrilla premium con el TITULAR de cada participante.
+      view.appendChild(el('<div class="reveal-banner">🏁 <b>Parrilla revelada</b> · los titulares de esta ronda ya son públicos</div>'));
+      var grid = el('<div class="pgrid"></div>');
+      ps.items.forEach(function (i, idx) { grid.appendChild(el(revealCard(i, idx))); });
+      view.appendChild(grid);
+    } else {
+      // Antes del corte: solo el estado, sin revelar ningún piloto.
+      var card = el('<div class="card list-anim"></div>');
+      ps.items.forEach(function (i, idx) { card.appendChild(el(statusRow(i, idx))); });
+      view.appendChild(card);
+      view.appendChild(el('<div class="hint">🔒 Los pilotos elegidos se revelan después del cierre (jue 13:00). Por ahora solo se muestra el estado.</div>'));
+    }
+  }
+
+  // Tarjeta de revelado (post-deadline): titular con color de escudería + suplente.
+  function revealCard(i, idx) {
+    if (!(i.revealed && i.titular)) {
+      return '<div class="preveal preveal--empty" style="--i:' + (idx || 0) + '">' +
+        '<span class="preveal__code preveal__code--none">—</span>' +
+        '<div class="preveal__info"><div class="preveal__name">' + esc(i.name) + '</div>' +
+        '<div class="preveal__driver">Sin pick</div></div></div>';
+    }
+    var dt = driverByKey(i.titular);
+    var sp = driverByKey(i.suplente);
+    var col = dt ? teamColor(dt.team) : '#6B6B78';
+    var code = dt ? (dt.code || i.titular) : i.titular;
+    var dname = dt ? dt.name : i.titular;
+    var team = dt ? dt.team : '';
+    var sup = sp ? (sp.code || i.suplente) : i.suplente;
+    return '<div class="preveal" style="--team:' + col + ';--i:' + (idx || 0) + '">' +
+      '<span class="preveal__code" style="background:linear-gradient(135deg,rgba(0,0,0,.12),rgba(0,0,0,.34)),' + col + '">' + esc(code) + '</span>' +
+      '<div class="preveal__info">' +
+        '<div class="preveal__name">' + esc(i.name) + '</div>' +
+        '<div class="preveal__driver">' + esc(dname) + (team ? ' · <span>' + esc(team) + '</span>' : '') + '</div>' +
+      '</div>' +
+      (sup ? '<div class="preveal__sup"><small>SUP</small><b>' + esc(sup) + '</b></div>' : '') +
+    '</div>';
   }
 
   function statusRow(i, idx) {

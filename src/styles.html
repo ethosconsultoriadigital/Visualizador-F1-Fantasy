@@ -245,6 +245,38 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .st-row__pick{font-size:12px;color:var(--txt-dim);margin-top:2px}
 .hint{font-size:12px;color:var(--txt-mute);text-align:center;margin-top:12px;padding:0 10px}
 
+/* ---------- Parrilla revelada (post-deadline) ---------- */
+.reveal-banner{
+  background:linear-gradient(135deg,rgba(40,199,111,.16),rgba(40,199,111,.04));
+  border:1px solid rgba(40,199,111,.35);color:#8ff0bd;
+  padding:11px 14px;border-radius:12px;font-size:12.5px;margin-bottom:14px;text-align:center;
+}
+.reveal-banner b{color:var(--ok)}
+.pgrid{display:flex;flex-direction:column;gap:10px;perspective:900px}
+.preveal{
+  position:relative;display:flex;align-items:center;gap:13px;overflow:hidden;
+  background:linear-gradient(135deg,var(--panel-2),var(--panel));
+  border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px 17px;
+  animation:revealCard .5s cubic-bezier(.2,.75,.2,1) backwards;
+  animation-delay:calc(var(--i,0)*60ms);
+}
+.preveal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--team,#555)}
+.preveal__code{
+  flex:none;min-width:62px;text-align:center;font-weight:800;font-size:16px;letter-spacing:.5px;
+  color:#fff;padding:12px 9px;border-radius:11px;
+  text-shadow:0 1px 2px rgba(0,0,0,.45);box-shadow:0 5px 14px rgba(0,0,0,.32);
+}
+.preveal__code--none{background:var(--panel-2);color:var(--txt-mute);box-shadow:none;text-shadow:none}
+.preveal__info{flex:1;min-width:0}
+.preveal__name{font-weight:700;font-size:15px;line-height:1.15}
+.preveal__driver{font-size:12px;color:var(--txt-dim);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.preveal__driver span{color:var(--txt-mute)}
+.preveal__sup{flex:none;text-align:center;padding-left:11px;border-left:1px solid var(--line)}
+.preveal__sup small{display:block;font-size:8px;letter-spacing:1px;color:var(--txt-mute);text-transform:uppercase}
+.preveal__sup b{font-size:13px;font-weight:800;color:var(--txt-dim)}
+.preveal--empty{opacity:.5}
+@keyframes revealCard{from{opacity:0;transform:translateY(16px) rotateX(-14deg)}to{opacity:1;transform:none}}
+
 /* ---------- Pick screen ---------- */
 .field{margin-bottom:14px}
 .field__label{font-size:12px;color:var(--txt-dim);text-transform:uppercase;letter-spacing:1px;margin:0 4px 7px;display:block;font-weight:700}
