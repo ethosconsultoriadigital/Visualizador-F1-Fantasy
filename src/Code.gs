@@ -164,6 +164,7 @@ function getInitialAppData() {
       drivers: drivers,
       participants: participants,
       pickStatus: pickStatus,
+      resultRounds: DataService.getResultRounds(),
       form: {
         baseUrl: APP.FORM_BASE_URL,
         participantEntry: APP.FORM_PARTICIPANT_ENTRY
@@ -181,6 +182,18 @@ function getInitialAppData() {
 function getAvailableDrivers(participantName) {
   try {
     return { ok: true, data: DataService.getAvailableDrivers(participantName) };
+  } catch (err) {
+    return { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+}
+
+/**
+ * Detalle de un GP (al tocar una fecha en Calendario): resultado oficial 1–22,
+ * pole, Driver of the Day y los puntos de cada participante en esa ronda.
+ */
+function getGpDetail(round) {
+  try {
+    return { ok: true, data: DataService.getGpDetail(round) };
   } catch (err) {
     return { ok: false, error: String(err && err.message ? err.message : err) };
   }

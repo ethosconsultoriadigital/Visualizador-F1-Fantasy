@@ -53,7 +53,30 @@ var SheetUtils = (function () {
     return '';
   }
 
-  return { getSheet: getSheet, readTable: readTable, pick: pick };
+  /**
+   * Encuentra el NOMBRE de la pestaña cuya fila de encabezados contiene TODOS
+   * los textos requeridos. Permite leer pestañas sin conocer su nombre exacto
+   * (resultados, pole/DoD, scoring), tolerando variaciones de nombre.
+   */
+  function findSheetName(required) {
+    var sheets = ss().getSheets();
+    for (var i = 0; i < sheets.length; i++) {
+      var sh = sheets[i];
+      var lc = sh.getLastColumn();
+      if (lc < 1) continue;
+      var hdr = sh.getRange(1, 1, 1, lc).getValues()[0].map(function (h) {
+        return String(h || '').trim().toLowerCase();
+      });
+      var ok = required.every(function (req) {
+        var n = req.toLowerCase();
+        return hdr.some(function (h) { return h === n || h.indexOf(n) !== -1; });
+      });
+      if (ok) return sh.getName();
+    }
+    return null;
+  }
+
+  return { getSheet: getSheet, readTable: readTable, pick: pick, findSheetName: findSheetName };
 })();
 
 
@@ -258,6 +281,94 @@ var DataService = (function () {
     return { participant: name, available: available, used: used };
   }
 
+  // Resuelve (y cachea) el nombre de una pestaña por firma de columnas.
+  function sheetName(key, required) {
+    return cached('sheetname_' + key, 600, function () {
+      return SheetUtils.findSheetName(required) || '';
+    });
+  }
+
+  // ---------- RONDAS CON RESULTADOS (para habilitar el detalle en Calendario) ----------
+  function getResultRounds() {
+    return cached('resultrounds_v1', APP.CACHE_TTL_SECONDS, function () {
+      var name = sheetName('results', ['Round', 'Driver', 'Position', 'Points']);
+      if (!name) return [];
+      var t = SheetUtils.readTable(name);
+      var set = {};
+      t.rows.forEach(function (r) {
+        var rnd = num(SheetUtils.pick(r, ['Round', 'Ronda']));
+        var pos = num(SheetUtils.pick(r, ['Position', 'Pos']));
+        if (rnd && pos) set[rnd] = true;
+      });
+      return Object.keys(set).map(Number).sort(function (a, b) { return a - b; });
+    });
+  }
+
+  // ---------- DETALLE DE UN GP (resultado oficial + pole/DoD + puntos participantes) ----------
+  function getGpDetail(round) {
+    round = num(round);
+    return cached('gpdetail_v1_' + round, 300, function () {
+      var drivers = getDrivers();
+      var byName = {}, byCode = {};
+      drivers.forEach(function (d) {
+        if (d.name) byName[d.name.toUpperCase()] = d;
+        if (d.code) byCode[d.code.toUpperCase()] = d;
+      });
+
+      // 1) Resultado oficial 1–22
+      var resName = sheetName('results', ['Round', 'Driver', 'Position', 'Points']);
+      var results = [];
+      if (resName) {
+        SheetUtils.readTable(resName).rows.forEach(function (r) {
+          if (num(SheetUtils.pick(r, ['Round', 'Ronda'])) !== round) return;
+          var dname = String(SheetUtils.pick(r, ['Driver', 'Piloto']) || '').trim();
+          var d = byName[dname.toUpperCase()];
+          results.push({
+            pos: num(SheetUtils.pick(r, ['Position', 'Pos'])),
+            driver: dname,
+            code: d ? d.code : '',
+            team: d ? d.team : '',
+            points: num(SheetUtils.pick(r, ['Points', 'Puntos'])),
+            status: String(SheetUtils.pick(r, ['Status', 'Estado']) || '').trim()
+          });
+        });
+        results.sort(function (a, b) { return a.pos - b.pos; });
+      }
+
+      // 2) Pole / Driver of the Day
+      var pdName = sheetName('poledotd', ['PoleDriver']);
+      var pole = '', dotd = '';
+      if (pdName) {
+        SheetUtils.readTable(pdName).rows.forEach(function (r) {
+          if (num(SheetUtils.pick(r, ['Round', 'Ronda'])) !== round) return;
+          pole = String(SheetUtils.pick(r, ['PoleDriver', 'Pole']) || '').trim();
+          dotd = String(SheetUtils.pick(r, ['DOTDDriver', 'DOTD', 'DayDriver']) || '').trim();
+        });
+      }
+
+      // 3) Puntos por participante (titular usado)
+      var scName = sheetName('scoring', ['UsedDriver', 'FinalPoints']);
+      var participants = [];
+      if (scName) {
+        SheetUtils.readTable(scName).rows.forEach(function (r) {
+          if (num(SheetUtils.pick(r, ['Round', 'Ronda'])) !== round) return;
+          var code = String(SheetUtils.pick(r, ['UsedDriver']) || '').trim();
+          var d = byCode[code.toUpperCase()];
+          participants.push({
+            name: String(SheetUtils.pick(r, ['Participante', 'Nombre']) || '').trim(),
+            code: code,
+            team: d ? d.team : '',
+            points: num(SheetUtils.pick(r, ['FinalPoints', 'Puntos', 'Points'])),
+            source: String(SheetUtils.pick(r, ['Source']) || '').trim()
+          });
+        });
+        participants.sort(function (a, b) { return b.points - a.points; });
+      }
+
+      return { round: round, results: results, pole: pole, dotd: dotd, participants: participants };
+    });
+  }
+
   // ---------- helpers ----------
   function num(v) {
     if (v === '' || v === null || v === undefined) return 0;
@@ -278,6 +389,8 @@ var DataService = (function () {
     getDrivers: getDrivers,
     getParticipantsNames: getParticipantsNames,
     getPickStatus: getPickStatus,
-    getAvailableDrivers: getAvailableDrivers
+    getAvailableDrivers: getAvailableDrivers,
+    getResultRounds: getResultRounds,
+    getGpDetail: getGpDetail
   };
 })();

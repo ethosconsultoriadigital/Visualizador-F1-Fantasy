@@ -9,7 +9,8 @@
     data: null,
     view: 'home',
     cdTimer: null,
-    pick: { name: '', titular: null, drivers: null, loading: false }
+    pick: { name: '', titular: null, drivers: null, loading: false },
+    gpCache: {}
   };
 
   var TEAM_COLORS = {
@@ -306,23 +307,82 @@
     view.appendChild(el('<div class="section-title">Calendario ' + STATE.data.config.season + '</div>'));
     if (!cal.length) { view.appendChild(el('<div class="empty">Sin calendario.</div>')); return; }
 
+    var hasResults = {};
+    (STATE.data.resultRounds || []).forEach(function (n) { hasResults[n] = true; });
+
     var card = el('<div class="card list-anim"></div>');
     cal.forEach(function (r, idx) {
       var badge = r.state === 'current'
         ? '<span class="badge badge--current">Actual</span>'
         : (r.state === 'past' ? '<span class="badge badge--past">Final</span>' : '');
-      card.appendChild(el(
-        '<div class="cal-item cal-item--' + r.state + '" style="--i:' + idx + '">' +
+      var openable = !!hasResults[r.round];
+      var entry = el('<div class="cal-entry" data-round="' + r.round + '"></div>');
+      var item = el(
+        '<div class="cal-item cal-item--' + r.state + (openable ? ' cal-item--openable' : '') + '" style="--i:' + idx + '">' +
           '<div class="cal-item__rnd"><small>RND</small><b>' + r.round + '</b></div>' +
           '<div class="cal-item__body">' +
             '<div class="cal-item__name">' + flag(r.country) + ' ' + esc(r.name) + ' ' + badge + '</div>' +
             '<div class="cal-item__meta">' + esc(r.circuit || '') + (r.location ? ' · ' + esc(r.location) : '') + '</div>' +
           '</div>' +
           '<div class="cal-item__date">' + esc(fmtDateShort(r.date)) + '</div>' +
+          (openable ? '<span class="cal-chev">▾</span>' : '') +
         '</div>'
-      ));
+      );
+      if (openable) item.addEventListener('click', function () { toggleGp(r.round, entry); });
+      entry.appendChild(item);
+      card.appendChild(entry);
     });
     view.appendChild(card);
+  }
+
+  // Despliega/oculta el detalle de un GP bajo su fila del calendario.
+  function toggleGp(round, entry) {
+    var existing = entry.querySelector('.gp-detail');
+    if (existing) { existing.remove(); entry.classList.remove('is-open'); return; }
+    entry.classList.add('is-open');
+    var det = el('<div class="gp-detail"><div class="gp-loading">Cargando resultados…</div></div>');
+    entry.appendChild(det);
+    if (STATE.gpCache[round]) { det.innerHTML = gpDetailHtml(STATE.gpCache[round]); return; }
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res || !res.ok) { det.innerHTML = '<div class="gp-loading">No se pudieron cargar los resultados.</div>'; return; }
+        STATE.gpCache[round] = res.data;
+        det.innerHTML = gpDetailHtml(res.data);
+      })
+      .withFailureHandler(function () { det.innerHTML = '<div class="gp-loading">Error al cargar el detalle.</div>'; })
+      .getGpDetail(round);
+  }
+
+  function gpDetailHtml(d) {
+    var chips = '<div class="gp-chips">' +
+      '<div class="gp-chip gp-chip--pole"><small>🏁 Pole Position</small><b>' + (d.pole ? esc(d.pole) : '—') + '</b></div>' +
+      '<div class="gp-chip gp-chip--dod"><small>⭐ Driver of the Day</small><b>' + (d.dotd ? esc(d.dotd) : '—') + '</b></div>' +
+    '</div>';
+
+    var res = (d.results || []).map(function (r) {
+      var col = teamColor(r.team);
+      var posCls = r.pos <= 3 ? ' res-pos--' + r.pos : '';
+      var ptsCls = r.points === 0 ? ' res-pts--zero' : '';
+      return '<div class="res-row"><span class="res-pos' + posCls + '">' + r.pos + '</span>' +
+        '<span class="res-dot" style="background:' + col + '"></span>' +
+        '<span class="res-code">' + esc(r.code || '') + '</span>' +
+        '<span class="res-name">' + esc(r.driver) + '</span>' +
+        '<span class="res-pts' + ptsCls + '">' + r.points + '</span></div>';
+    }).join('');
+
+    var pp = (d.participants || []).map(function (p) {
+      var col = teamColor(p.team);
+      var drv = p.code
+        ? '<span class="pp-drv" style="background:linear-gradient(135deg,rgba(0,0,0,.15),rgba(0,0,0,.35)),' + col + '">' + esc(p.code) + '</span>'
+        : '';
+      return '<div class="pp-row"><span class="pp-name">' + esc(p.name) + '</span>' + drv +
+        '<span class="pp-pts">' + p.points + '</span></div>';
+    }).join('');
+
+    if (!res && !pp) return '<div class="gp-loading">Aún sin resultados para esta ronda.</div>';
+    return chips +
+      (res ? '<div class="gp-sub">Resultado oficial · 1–' + d.results.length + '</div><div class="gp-res">' + res + '</div>' : '') +
+      (pp ? '<div class="gp-sub">Puntos de participantes</div><div class="gp-pp">' + pp + '</div>' : '');
   }
 
   // ================= STATUS =================
